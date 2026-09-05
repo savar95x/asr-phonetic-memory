@@ -1,8 +1,10 @@
+# README.md
+
 # Kivi Phonetic Memory Layer
 
 This text-to-text pipeline bridges the gap between raw Automatic Speech Recognition (ASR) hypotheses and final formatted text. It acts as a personalized phonetic memory system, learning a user’s unique vocabulary—names, companies, slang, and domain-specific terms—that standard models frequently transcribe phonetically but misspell.
 
-The system builds this memory passively using `kivi learn` (by extracting context around corrections) and applies it dynamically using `kivi process` to correct future transcriptions with context-aware precision, entirely bypassing hardcoded dictionaries.
+The system builds this memory passively using `kivi learn` (by extracting context around corrections) and applies it dynamically using `kivi process` to correct future transcriptions with context-aware precision, entirely bypassing hardcoded dictionaries. 
 
 ## Internal Architecture
 
@@ -28,10 +30,17 @@ This flow applies memory to live, raw ASR transcripts to resolve phonetic collis
 * **Vector Retrieval (Fast Path):** The SQLite database performs a live TF-IDF calculation filtering candidates based on context overlap. If no candidates clear the threshold (score $\ge 0.2$ and confidence $\ge 0.3$), the system bypasses the LLM entirely, yielding a 0ms latency return.
 * **Context Guard (LLM Disambiguation):** If candidates match, the raw ASR, baseline formatted text, and retrieved phonetic candidates (including their `entity_type`) are passed to an LLM. Driven by strict spelling rules, cross-domain collision checks, and semantic type constraints (e.g., requiring grammatical syntax matches for `PERSON` or strict keyword matches for `TECH_TERM`), the guard decides whether to intervene, returning structured JSON with the corrected output and justification.
 
+### 3. The Correction Flow (`kivi forget` / `kivi penalize`)
+
+This flow provides manual control over incorrect learnings and misaligned LLM interventions.
+
+* **Hard Deletion (`forget`):** Executes a complete purge of an entity. By utilizing SQLite's `ON DELETE CASCADE`, wiping the root entity instantly cleans up all associated aliases, statistical weights, and context keywords.
+* **Soft Decay (`penalize`):** Rather than destroying an entity, this flow reduces its `confidence_score` mathematically (subtracting 0.15) and increments its `rejected_interventions` counter. This strategically pushes problematic entities below the `0.3` retrieval threshold without losing the hard-earned contextual term frequencies in the database.
+
 ## Directory Structure
 
-* **`src/cli.py`**: The central Click-based command-line interface. Wires commands (`learn`, `process`, `inspect`, `reset`, `eval`) to their respective engine functions.
-* **`src/db/client.py`**: The SQLite database client. Handles WAL-mode connections, dynamic TF-IDF SQL queries, entity typing, and exponential confidence scoring.
+* **`src/cli.py`**: The central Click-based command-line interface. Wires commands (`learn`, `process`, `inspect`, `forget`, `penalize`, `reset`, `eval`) to their respective engine functions.
+* **`src/db/client.py`**: The SQLite database client. Handles WAL-mode connections, dynamic TF-IDF SQL queries, exponential confidence scoring, and cascade-safe deletion/penalization.
 * **`src/db/schema.sql`**: Table definitions isolating raw entities, global word frequencies, local contexts, and phonetic aliases.
 * **`src/engine/aligner.py`**: Calculates textual diffs to find replaced words and extracts isolated, stop-word-filtered context bounds.
 * **`src/engine/phonetics.py`**: Wraps the Double Metaphone implementation, normalizing phonetic hashes to optimal 4-character keys.
@@ -57,16 +66,17 @@ This flow applies memory to live, raw ASR transcripts to resolve phonetic collis
 * `global_word_stats`: Tracks the global frequency of context words across all entities. Serves as the `entity_count` denominator in the IDF calculation. If a word is attached to many different entities (e.g., "the", "said"), its IDF approaches zero.
 * `phonetic_aliases`: Captures the actual ASR mistakes (the `alias`) that led to a correction. Maps back to `entity_id`. Useful for direct matching and bypassing fuzzy phonetic logic when a known, exact mistake recurs.
 * `context_keywords`: The many-to-many bridge linking an `entity_id` to a `keyword`. Stores the `local_frequency` (Term Frequency), which is how many times this specific entity was spoken near this specific word.
-* `memory_stats`: Tracks `observations_count` and the resulting `confidence_score`. Evaluated at runtime to filter out highly speculative candidates before sending them to the LLM guard.
+* `memory_stats`: Tracks `observations_count`, `successful_interventions`, `rejected_interventions`, and the current `confidence_score`. Evaluated at runtime to filter out highly speculative candidates (requiring $\ge 0.3$) before sending them to the LLM guard. Confidence can decay via the `kivi penalize` command.
 
 ## Decisions & Challenges
 
 * **In-Database Math over Python Processing:** Calculating TF-IDF in Python would require dumping massive amounts of keyword data into memory on every request. By injecting `math.log` into the SQLite connection, candidate filtering is executed entirely within the C-optimized SQL engine, resulting in microsecond retrieval times.
 * **Challenge: Compound Word Splitting:** A major hurdle was ASR models erroneously inserting spaces into single entities (e.g., transcribing "Atomberg" as "Adam Berg"). Standard n-gram phonetic matching fails because "Adam" and "Berg" evaluate to separate phonetic keys. This was solved by the "Squashed Key" algorithm in `memory.py`, which strips spaces from the 2- and 3-grams before phonetic encoding, ensuring "Adam Berg" hits the exact same phonetic index as "Atomberg".
-* **Challenge: LLM Over-Correction:** Initial iterations resulted in the LLM replacing valid English words with similar-sounding entities when context was weak. Solved by defining strict cross-domain collision rules in `guard.py`, introducing `entity_type` logic for strict semantic parsing, and strictly requiring the LLM to return `output` and `interventions` JSON keys to force chain-of-thought justification before replacement.
+* **Challenge: LLM Over-Correction:** Initial iterations resulted in the LLM replacing valid English words with similar-sounding entities when context was weak. Solved by defining strict cross-domain collision rules in `guard.py`, introducing `entity_type` logic for strict semantic parsing, strictly requiring the LLM to return `output` and `interventions` JSON keys, and exposing the `kivi penalize` CLI command to manually decay confidence for repeat offenders.
 
 ## Limitations & AI Use
 
 * **Latency:** While zero-candidate queries safely bypass the LLM for immediate processing (0ms overhead), ambiguous phonetic matches require an external API call, introducing network latency governed by the upstream LLM provider.
 * **Collisions:** If two identical phonetic entities (e.g., "Stephen" and "Steven") share highly similar global word statistics, the system relies heavily on the LLM's default spelling rules, which may occasionally result in false positives.
 * **Benchmark Performance:** In the seed+dataset given, my results come out to be `[INSERT ACCURACY]%` true-positive intervention accuracy, with a false positive rate of `[INSERT FPR]%`, while taking `[INSERT LATENCY]ms` p50 latency with the `[INSERT MODEL NAME]` model (free dev testing tier).
+

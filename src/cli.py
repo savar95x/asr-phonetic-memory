@@ -122,7 +122,33 @@ def inspect(entity: str):
     click.echo(json.dumps(records, indent=2))
 
 # ==========================================
-# 4. kivi reset
+# 4. kivi forget
+# ==========================================
+@cli.command()
+@click.option('--entity', required=True, help="Canonical name of the entity to forget")
+def forget(entity: str):
+    """Completely drops a learned entity from memory."""
+    success = db.forget_entity(entity)
+    if success:
+        click.secho(f"Entity '{entity}' forgotten successfully.", fg="green")
+    else:
+        click.secho(f"Warning: Entity '{entity}' not found in database.", fg="red", err=True)
+
+# ==========================================
+# 5. kivi penalize
+# ==========================================
+@cli.command()
+@click.option('--entity', required=True, help="Canonical name of the entity to penalize")
+def penalize(entity: str):
+    """Reduces confidence score and logs a rejected LLM intervention for an entity."""
+    success = db.penalize_entity(entity)
+    if success:
+        click.secho(f"Entity '{entity}' penalized. Confidence score has been reduced.", fg="yellow")
+    else:
+        click.secho(f"Warning: Entity '{entity}' not found in database.", fg="red", err=True)
+
+# ==========================================
+# 6. kivi reset
 # ==========================================
 @cli.command()
 @click.option('--seed', is_flag=True, help="Load default seed baseline data after reset")
@@ -146,7 +172,7 @@ def reset(seed: bool):
     click.secho("Database wiped and clean schema applied.", fg="yellow")
 
 # ==========================================
-# 5. kivi eval
+# 7. kivi eval
 # ==========================================
 @cli.command(name="eval")
 @click.option('--dataset', required=True, type=click.Path(exists=True), help="Path to evaluation JSON")

@@ -98,6 +98,43 @@ class KiviDB:
                     
         return entity_id
 
+    def forget_entity(self, canonical: str) -> bool:
+        """Deletes an entity and relies on ON DELETE CASCADE for related tables."""
+        with self.conn:
+            cursor = self.conn.execute(
+                "DELETE FROM entities WHERE LOWER(canonical_form) = LOWER(?)", 
+                (canonical,)
+            )
+            return cursor.rowcount > 0
+
+    def penalize_entity(self, canonical: str) -> bool:
+        """Locates the entity, increments rejected interventions, and decays confidence."""
+        with self.conn:
+            # Look up the entity ID first
+            cursor = self.conn.execute(
+                "SELECT id FROM entities WHERE LOWER(canonical_form) = LOWER(?)", 
+                (canonical,)
+            )
+            row = cursor.fetchone()
+            
+            if not row:
+                return False
+                
+            entity_id = row['id']
+            
+            # Update memory_stats applying a 0.15 penalty to confidence, floored at 0.0
+            update_cursor = self.conn.execute("""
+                UPDATE memory_stats
+                SET rejected_interventions = rejected_interventions + 1,
+                    confidence_score = CASE 
+                        WHEN confidence_score - 0.15 < 0.0 THEN 0.0 
+                        ELSE confidence_score - 0.15 
+                    END
+                WHERE entity_id = ?
+            """, (entity_id,))
+            
+            return update_cursor.rowcount > 0
+
     def get_candidates(self, primary_meta: str, secondary_meta: str) -> List[Dict]:
         """Retrieves matching candidates, filtering contexts directly via calculated TF-IDF scores."""
         if not primary_meta:
