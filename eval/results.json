@@ -1,0 +1,345 @@
+{
+  "summary": {
+    "intervention_accuracy": 1.0,
+    "false_positive_rate": 0.0,
+    "p50_latency_ms": 12542
+  },
+  "traces": [
+    {
+      "asr": "hi aditya can you review this",
+      "formatted": "Hi Aditya, can you review this?",
+      "memory_aware": "Hi Aaditya, can you review this?",
+      "interventions": [
+        {
+          "original": "Aditya",
+          "replacement": "Aaditya",
+          "matched_context": [],
+          "confidence": 0.95,
+          "reason": "Spelling preference: 'Aditya' is an alias for canonical entity 'Aaditya'. Per Rule 2, different spellings of the same proper name are replaced."
+        }
+      ],
+      "latency_ms": 16449
+    },
+    {
+      "asr": "check if the sarvam keevee service is responding",
+      "formatted": "Check if the Sarvam Keevee service is responding.",
+      "memory_aware": "Check if the Sarvam Kivi service is responding.",
+      "interventions": [
+        {
+          "original": "Keevee",
+          "replacement": "Kivi",
+          "matched_context": [
+            "sarvam"
+          ],
+          "confidence": 0.95,
+          "reason": "The ASR transcription 'Keevee' matches an alias for the canonical entity 'Kivi'. The presence of the keyword 'sarvam' in the context strongly supports this specific technical entity over a generic spelling variation or error."
+        }
+      ],
+      "latency_ms": 14912
+    },
+    {
+      "asr": "i bought a fresh kiwi from the market",
+      "formatted": "I bought a fresh kiwi from the market.",
+      "memory_aware": "I bought a fresh kiwi from the market.",
+      "interventions": [],
+      "latency_ms": 45
+    },
+    {
+      "asr": "the item ee lab approved it",
+      "formatted": "The item EE lab approved it.",
+      "memory_aware": "The item IITM approved it.",
+      "interventions": [
+        {
+          "original": "item",
+          "replacement": "IITM",
+          "matched_context": [
+            "ee",
+            "lab",
+            "approved"
+          ],
+          "confidence": 0.85,
+          "reason": "The ASR output 'item' is a phonetic match for the canonical entity 'IITM'. The context keywords 'ee', 'lab', and 'approved' strongly support this as a proper noun referring to an institution or lab name rather than the common noun 'item'. This falls under fragmentation/correction of a transcription error where a proper name was misheard as a common word."
+        }
+      ],
+      "latency_ms": 17875
+    },
+    {
+      "asr": "please place the item on the table",
+      "formatted": "Please place the item on the table.",
+      "memory_aware": "Please place the item on the table.",
+      "interventions": [],
+      "latency_ms": 9893
+    },
+    {
+      "asr": "testing the bldc motor for atom berg",
+      "formatted": "Testing the BLDC motor for Atom berg.",
+      "memory_aware": "Testing the BLDC motor for Atomberg.",
+      "interventions": [
+        {
+          "original": "Atom berg",
+          "replacement": "Atomberg",
+          "matched_context": [
+            "bldc",
+            "motor",
+            "testing"
+          ],
+          "confidence": 0.95,
+          "reason": "The ASR output 'atom berg' is a fragmented transcription of the proper noun 'Atomberg', which is a known manufacturer of BLDC motors. The context keywords (BLDC, motor) strongly support this specific entity over the generic IITM candidate."
+        }
+      ],
+      "latency_ms": 15208
+    },
+    {
+      "asr": "we need to serialize the config payload to jason",
+      "formatted": "We need to serialize the config payload to Jason.",
+      "memory_aware": "We need to serialize the config payload to JSON.",
+      "interventions": [
+        {
+          "original": "Jason",
+          "replacement": "JSON",
+          "matched_context": [
+            "config",
+            "payload"
+          ],
+          "confidence": 0.95,
+          "reason": "Contextual keywords 'config' and 'payload' indicate a technical data format context. 'jason' is a known alias for 'JSON' in memory, and ASR often confuses the acronym with the proper name."
+        }
+      ],
+      "latency_ms": 14904
+    },
+    {
+      "asr": "we need to invite jason to the meeting",
+      "formatted": "We need to invite Jason to the meeting.",
+      "memory_aware": "We need to invite Jason to the meeting.",
+      "interventions": [],
+      "latency_ms": 5247
+    },
+    {
+      "asr": "i am going to rice my avoid linux setup",
+      "formatted": "I am going to rice my avoid Linux setup.",
+      "memory_aware": "I am going to rice my Void Linux setup.",
+      "interventions": [
+        {
+          "original": "avoid",
+          "replacement": "Void",
+          "matched_context": [
+            "linux",
+            "rice"
+          ],
+          "confidence": 0.95,
+          "reason": "The ASR transcription 'avoid' is a phonetic match for the canonical entity 'Void'. The context keywords 'linux' and 'rice' strongly indicate the user is referring to 'Void Linux', a specific distribution often customized ('riced') by users. Replacing 'avoid' (a common verb) with 'Void' corrects a domain-specific error."
+        }
+      ],
+      "latency_ms": 16127
+    },
+    {
+      "asr": "you should avoid eating too late",
+      "formatted": "You should avoid eating too late.",
+      "memory_aware": "You should avoid eating too late.",
+      "interventions": [],
+      "latency_ms": 5185
+    },
+    {
+      "asr": "we deployed the incognito clone to aws backend",
+      "formatted": "We deployed the incognito clone to AWS backend.",
+      "memory_aware": "We deployed the Cognito clone to AWS backend.",
+      "interventions": [
+        {
+          "original": "incognito",
+          "replacement": "Cognito",
+          "matched_context": [
+            "aws",
+            "backend"
+          ],
+          "confidence": 0.95,
+          "reason": "The term 'incognito' is a known alias for the AWS service 'Cognito'. Given the context of 'AWS backend', this is a clear domain-specific correction rather than a spelling variation or fragmentation."
+        }
+      ],
+      "latency_ms": 7829
+    },
+    {
+      "asr": "i opened an incognito tab to search",
+      "formatted": "I opened an incognito tab to search.",
+      "memory_aware": "I opened an incognito tab to search.",
+      "interventions": [],
+      "latency_ms": 11187
+    },
+    {
+      "asr": "aditya configured neo them terminal with a jason payload",
+      "formatted": "Aditya configured Neo them terminal with a Jason payload.",
+      "memory_aware": "Aaditya configured Neovim terminal with a JSON payload.",
+      "interventions": [
+        {
+          "original": "Aditya",
+          "replacement": "Aaditya",
+          "matched_context": [
+            "configured"
+          ],
+          "confidence": 0.95,
+          "reason": "Spelling preference correction based on canonical entity 'Aaditya' and alias 'aditya'. ASR input matches the alias."
+        },
+        {
+          "original": "Neo them",
+          "replacement": "Neovim",
+          "matched_context": [
+            "terminal",
+            "config"
+          ],
+          "confidence": 0.98,
+          "reason": "Fragmentation/Transcription error correction. 'neo them' is an alias for 'Neovim', and context 'terminal' supports this technical concept over a literal interpretation."
+        },
+        {
+          "original": "Jason",
+          "replacement": "JSON",
+          "matched_context": [
+            "payload",
+            "config"
+          ],
+          "confidence": 0.95,
+          "reason": "Cross-domain collision resolved by strong domain keywords ('payload', 'config'). 'jason' is an alias for 'JSON' in this technical context."
+        }
+      ],
+      "latency_ms": 18484
+    },
+    {
+      "asr": "make sure the read is cache database is flushed",
+      "formatted": "Make sure the read is cache database is flushed.",
+      "memory_aware": "Make sure the Redis cache database is flushed.",
+      "interventions": [
+        {
+          "original": "read is",
+          "replacement": "Redis",
+          "matched_context": [
+            "cache",
+            "database"
+          ],
+          "confidence": 0.95,
+          "reason": "The ASR transcription 'read is' is a phonetic match for the canonical entity 'Redis'. The context keywords 'cache' and 'database' strongly support this technical correction, as Redis is a common in-memory data store/cache database."
+        }
+      ],
+      "latency_ms": 12542
+    },
+    {
+      "asr": "i like to read is books on weekends",
+      "formatted": "I like to read is books on weekends.",
+      "memory_aware": "I like to read is books on weekends.",
+      "interventions": [],
+      "latency_ms": 12538
+    },
+    {
+      "asr": "build a fast api endpoint with async handlers",
+      "formatted": "Build a fast api endpoint with async handlers.",
+      "memory_aware": "Build a FastAPI endpoint with async handlers.",
+      "interventions": [
+        {
+          "original": "fast api",
+          "replacement": "FastAPI",
+          "matched_context": [
+            "async",
+            "endpoint"
+          ],
+          "confidence": 0.95,
+          "reason": "The phrase 'fast api' is a common ASR fragmentation of the proper noun 'FastAPI', especially in the context of 'async handlers' and 'endpoint'. This matches the spelling preference rule for canonical entity correction."
+        }
+      ],
+      "latency_ms": 7813
+    },
+    {
+      "asr": "configure the dezel orm for the rust backend",
+      "formatted": "Configure the dezel orm for the rust backend.",
+      "memory_aware": "Configure the Diesel ORM for the Rust backend.",
+      "interventions": [
+        {
+          "original": "dezel",
+          "replacement": "Diesel",
+          "matched_context": [
+            "orm",
+            "rust"
+          ],
+          "confidence": 0.95,
+          "reason": "The ASR transcription 'dezel' is a phonetic error for the canonical entity 'Diesel', which is a well-known ORM for Rust. The context keywords 'orm' and 'rust' strongly confirm this domain-specific correction."
+        }
+      ],
+      "latency_ms": 13864
+    },
+    {
+      "asr": "clean the dataset using pan das dataframe analytics",
+      "formatted": "Clean the dataset using pan das dataframe analytics.",
+      "memory_aware": "Clean the dataset using Pandas dataframe analytics.",
+      "interventions": [
+        {
+          "original": "pan das",
+          "replacement": "Pandas",
+          "matched_context": [
+            "dataframe",
+            "analytics"
+          ],
+          "confidence": 0.95,
+          "reason": "The ASR output 'pan das' is a phonetic fragmentation of the canonical entity 'Pandas', which is strongly supported by the context keywords 'dataframe' and 'analytics'. This falls under FRAGMENTATION and SPELLING PREFERENCES rules."
+        }
+      ],
+      "latency_ms": 14376
+    },
+    {
+      "asr": "we saw pandas and bears at the zoo",
+      "formatted": "We saw pandas and bears at the zoo.",
+      "memory_aware": "We saw pandas and bears at the zoo.",
+      "interventions": [],
+      "latency_ms": 10178
+    },
+    {
+      "asr": "activate the corner environment for python",
+      "formatted": "Activate the corner environment for python.",
+      "memory_aware": "Activate the Conda environment for python.",
+      "interventions": [
+        {
+          "original": "corner",
+          "replacement": "Conda",
+          "matched_context": [
+            "environment",
+            "python"
+          ],
+          "confidence": 0.95,
+          "reason": "The term 'corner' is a phonetic mistranscription of 'Conda', a common Python environment management tool. The context keywords 'environment' and 'python' strongly support this correction."
+        }
+      ],
+      "latency_ms": 12567
+    },
+    {
+      "asr": "attach the tea max session in the terminal",
+      "formatted": "Attach the tea max session in the terminal.",
+      "memory_aware": "Attach the Tmux session in the terminal.",
+      "interventions": [
+        {
+          "original": "tea max",
+          "replacement": "Tmux",
+          "matched_context": [
+            "session",
+            "terminal"
+          ],
+          "confidence": 0.95,
+          "reason": "The ASR transcription 'tea max' is a phonetic fragmentation of the technical tool 'Tmux', confirmed by the context keywords 'session' and 'terminal'. This falls under fragmentation/cross-domain collision correction."
+        }
+      ],
+      "latency_ms": 7175
+    },
+    {
+      "asr": "spin up a dock her container with a volume",
+      "formatted": "Spin up a dock her container with a volume.",
+      "memory_aware": "Spin up a Docker container with a volume.",
+      "interventions": [
+        {
+          "original": "dock her",
+          "replacement": "Docker",
+          "matched_context": [
+            "container",
+            "volume"
+          ],
+          "confidence": 0.95,
+          "reason": "The phrase 'dock her' is a phonetic transcription error for 'Docker', strongly supported by the technical context keywords 'container' and 'volume'. This matches the canonical entity 'Docker' and its alias."
+        }
+      ],
+      "latency_ms": 10468
+    }
+  ]
+}

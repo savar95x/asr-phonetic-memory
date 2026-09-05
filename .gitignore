@@ -1,0 +1,25 @@
+# Environments
+.env
+venv/
+
+# Local Application State
+.kivi/
+
+# Python Cache & Build Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+
+# IDEs / OS
+.vscode/
+.idea/
+.DS_Store
+
+todo.md
+SRC.md
+PROMPT.md
+ALGORITHMS.md
+*.pdf

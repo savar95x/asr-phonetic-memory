@@ -1,0 +1,156 @@
+[
+  {
+    "id": "TP_01",
+    "category": "Proper Noun - Baseline Correction",
+    "asr": "hi aditya can you review this",
+    "fmt": "Hi Aditya, can you review this?",
+    "expected_target": "Aaditya"
+  },
+  {
+    "id": "TP_02",
+    "category": "Brand Collision - Context High Weight",
+    "asr": "check if the sarvam keevee service is responding",
+    "fmt": "Check if the Sarvam Keevee service is responding.",
+    "expected_target": "Kivi"
+  },
+  {
+    "id": "TN_01",
+    "category": "Brand Collision - Deliberate Negative",
+    "asr": "i bought a fresh kiwi from the market",
+    "fmt": "I bought a fresh kiwi from the market.",
+    "expected_target": null
+  },
+  {
+    "id": "TP_03",
+    "category": "Acronym Collision - Technical Context",
+    "asr": "the item ee lab approved it",
+    "fmt": "The item EE lab approved it.",
+    "expected_target": "IITM"
+  },
+  {
+    "id": "TN_02",
+    "category": "Acronym Collision - Deliberate Negative",
+    "asr": "please place the item on the table",
+    "fmt": "Please place the item on the table.",
+    "expected_target": null
+  },
+  {
+    "id": "TP_04",
+    "category": "Multi-Word Brand - Technical Context",
+    "asr": "testing the bldc motor for atom berg",
+    "fmt": "Testing the BLDC motor for Atom berg.",
+    "expected_target": "Atomberg"
+  },
+  {
+    "id": "TP_05",
+    "category": "Technical Jargon - Common Name Collision",
+    "asr": "we need to serialize the config payload to jason",
+    "fmt": "We need to serialize the config payload to Jason.",
+    "expected_target": "JSON"
+  },
+  {
+    "id": "TN_03",
+    "category": "Technical Jargon - Deliberate Negative",
+    "asr": "we need to invite jason to the meeting",
+    "fmt": "We need to invite Jason to the meeting.",
+    "expected_target": null
+  },
+  {
+    "id": "TP_06",
+    "category": "Technical Jargon - Dictionary Word",
+    "asr": "i am going to rice my avoid linux setup",
+    "fmt": "I am going to rice my avoid Linux setup.",
+    "expected_target": "Void"
+  },
+  {
+    "id": "TN_04",
+    "category": "Technical Jargon - Deliberate Negative",
+    "asr": "you should avoid eating too late",
+    "fmt": "You should avoid eating too late.",
+    "expected_target": null
+  },
+  {
+    "id": "TP_07",
+    "category": "Overlapping Domains - Backend Context",
+    "asr": "we deployed the incognito clone to aws backend",
+    "fmt": "We deployed the incognito clone to AWS backend.",
+    "expected_target": "Cognito"
+  },
+  {
+    "id": "TN_05",
+    "category": "Overlapping Domains - Deliberate Negative",
+    "asr": "i opened an incognito tab to search",
+    "fmt": "I opened an incognito tab to search.",
+    "expected_target": null
+  },
+  {
+    "id": "TP_08",
+    "category": "Multi-Entity Co-occurrence",
+    "asr": "aditya configured neo them terminal with a jason payload",
+    "fmt": "Aditya configured Neo them terminal with a Jason payload.",
+    "expected_target": "Neovim"
+  },
+  {
+    "id": "TP_09",
+    "category": "Dev Tool - Homophone Conflict",
+    "asr": "make sure the read is cache database is flushed",
+    "fmt": "Make sure the read is cache database is flushed.",
+    "expected_target": "Redis"
+  },
+  {
+    "id": "TN_06",
+    "category": "Dev Tool - Deliberate Negative",
+    "asr": "i like to read is books on weekends",
+    "fmt": "I like to read is books on weekends.",
+    "expected_target": null
+  },
+  {
+    "id": "TP_10",
+    "category": "Programming Framework - Context Match",
+    "asr": "build a fast api endpoint with async handlers",
+    "fmt": "Build a fast api endpoint with async handlers.",
+    "expected_target": "FastAPI"
+  },
+  {
+    "id": "TP_11",
+    "category": "Database ORM - Language Context",
+    "asr": "configure the dezel orm for the rust backend",
+    "fmt": "Configure the dezel orm for the rust backend.",
+    "expected_target": "Diesel"
+  },
+  {
+    "id": "TP_12",
+    "category": "Data Science Library - Animal Ambiguity",
+    "asr": "clean the dataset using pan das dataframe analytics",
+    "fmt": "Clean the dataset using pan das dataframe analytics.",
+    "expected_target": "Pandas"
+  },
+  {
+    "id": "TN_07",
+    "category": "Data Science Library - Deliberate Negative",
+    "asr": "we saw pandas and bears at the zoo",
+    "fmt": "We saw pandas and bears at the zoo.",
+    "expected_target": null
+  },
+  {
+    "id": "TP_13",
+    "category": "Environment Manager - Python Context",
+    "asr": "activate the corner environment for python",
+    "fmt": "Activate the corner environment for python.",
+    "expected_target": "Conda"
+  },
+  {
+    "id": "TP_14",
+    "category": "Terminal Multiplexer - Session Context",
+    "asr": "attach the tea max session in the terminal",
+    "fmt": "Attach the tea max session in the terminal.",
+    "expected_target": "Tmux"
+  },
+  {
+    "id": "TP_15",
+    "category": "Container Engine - Volume Mount",
+    "asr": "spin up a dock her container with a volume",
+    "fmt": "Spin up a dock her container with a volume.",
+    "expected_target": "Docker"
+  }
+]
