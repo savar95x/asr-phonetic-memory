@@ -21,7 +21,7 @@ For any help anywhere in the process, just do `kivi --help`
 
 ## Features & Usage
 
-Kivi operates entirely through a command-line interface, providing five core commands to manage and evaluate your phonetic memory layer:
+Kivi operates entirely through a command-line interface, providing core commands and developer utilities to manage your phonetic memory layer:
 
 ### 1. Learning New Vocabulary (`kivi learn`)
 Extracts entities and contextual triggers from a corrected transcription and saves them to the database. You can specify semantic types to improve disambiguation accuracy.
@@ -72,5 +72,18 @@ kivi eval --dataset tests/eval_data.json --output results.json
 
 ```
 
+### 6. Developer Utilities (`update_seed.py`)
+
+If you want to manually inject new entities into the baseline memory, you can add them to `seeds/default.sql` with empty phonetic hash columns. Run the helper script to programmatically calculate and inject the correct Double Metaphone keys into the SQL file before resetting the database.
+
+```bash
+python seeds/update_seed.py
+
+```
+
 > [Note]
-> For more usage, check out [USAGE.md](USAGE.md)
+> For more usage, check out [USAGE.md](https://www.google.com/search?q=USAGE.md)
+
+> [Important]
+> You can find the estimated token usage and API cost in the final `results.json` output. I ran the exhaustive benchmark using the free tier of **Qwen 3.6 Plus**, which uses a pricing model of $0.1875 / 1M input tokens and $1.125 / 1M output tokens.
+

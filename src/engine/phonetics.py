@@ -2,8 +2,8 @@
 from doublemetaphone import doublemetaphone
 
 def get_phonetic_keys(word: str) -> tuple[str, str]:
-    """Returns (primary, secondary) Double Metaphone keys, normalized to 4 chars."""
+    """Returns the full, untruncated (primary, secondary) Double Metaphone keys."""
     primary, secondary = doublemetaphone(word)
-    pri = (primary or "")[:4]
-    sec = (secondary or primary or "")[:4]
+    pri = primary or ""
+    sec = secondary or primary or ""
     return pri, sec
