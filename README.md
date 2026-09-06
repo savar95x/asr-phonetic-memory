@@ -97,9 +97,9 @@ Manual control over incorrect learnings and misaligned LLM interventions.
 │
 ├── README.md                   # ← product documentation (this file)
 ├── RUN.md                      # the reviewer's runbook — PRIMARY REVIEW METHOD declared here
-├── USAGE.md                    # per-command quirks & edge cases
-├── ALGORITHMS.md               # "why does it work" explainer (internal design notes)
-├── SRC.md                      # codebase navigation + data-flow cheat sheet
+├── USAGE.md                    # per-command quirks, edge cases & real JSON output shapes
+├── ALGORITHMS.md               # "why does it work" explainer (design notes, grounded in src/)
+├── todo.md                     # development checklist & review-readiness self-check
 │
 ├── src/                        # the Python engine
 │   ├── cli.py                  # Click commands: learn / process / inspect / forget / penalize / reset / eval
@@ -123,7 +123,6 @@ Manual control over incorrect learnings and misaligned LLM interventions.
 │
 ├── .kivi/
 │   └── memory.db               # the runtime SQLite database (created by `kivi reset`)
-└── Kivi_Backend_Full_Stack_Task_Clean_Cover.pdf   # the original assignment brief
 ```
 
 ---
@@ -153,6 +152,20 @@ Six tables, isolated by concern. `system_stats` and `global_word_stats` exist pu
 | `memory_stats` | Tracks `observations_count`, `successful_interventions`, `rejected_interventions`, `confidence_score`. Evaluated at runtime to filter out speculative candidates (≥ `0.3`) before the LLM guard. |
 
 Indexes: `entities(primary_metaphone)`, `phonetic_aliases(primary_metaphone)`, `context_keywords(keyword)`. WAL journal mode + `foreign_keys=ON` + `math.log` registered as `LOG` for in-SQL TF-IDF.
+
+### Code paths at a glance
+
+Where each command actually lives when reading the implementation:
+
+| Command | Call chain |
+| ------- | ---------- |
+| `kivi process` | `cli.py:process` → `memory.retrieve_candidates(ASR, db)` → sliding 1/2/3-grams (+ squashed) → `db.get_candidates(std, sec)` → SQL TF-IDF CTE (weight ≥ 0.2, confidence ≥ 0.3). No candidates → return formatted unchanged; else `guard.resolve_ambiguity(asr, fmt, candidates)`. |
+| `kivi learn` | `cli.py:learn` → `aligner.extract_learning_pairs(ASR, final)` → per pair `phonetics.get_phonetic_keys(canonical)` → `db.learn_entity(...)` idempotent upsert (entities / aliases / local TF / global DF / system_stats / confidence). |
+| `kivi inspect` | `client.inspect_entities(...)` — the *same* TF-IDF CTE as `get_candidates` (no threshold), so displayed weights always match retrieval. |
+| `kivi forget` | `client.forget_entity(canonical)` → `DELETE FROM entities` → `ON DELETE CASCADE`. |
+| `kivi penalize` | `client.penalize_entity(canonical)` → `rejected_interventions + 1`, `confidence − 0.15` floored at 0. |
+| `kivi reset [--seed]` | `client.reset(schema.sql)` → executes the DDL (drop/recreate + singleton `system_stats` row); with `--seed`, executes `seeds/default.sql`. |
+| `kivi eval` | `eval.runner.run_eval` — `ThreadPoolExecutor` over cases, each worker opening its own `KiviDB` connection, running straight into the engine (no CLI subprocess), dumping `{summary, traces}` to `--output`. |
 
 ---
 
@@ -190,7 +203,7 @@ High-frequency filler words leak into context windows and drown out real signals
 
 ### Concurrency because results are slow
 
-The evaluation suite is dominated by external LLM latency, not compute. `eval/runner.py` therefore runs cases in a `ThreadPoolExecutor` (`MAX_WORKERS`), with each worker opening its own `KiviDB` connection for safe SQLite concurrent reads (WAL mode). This collapsed ~26 minutes (7 workers, free tier) into a few minutes on a review-grade key — the concurrency is a direct response to each LLM call taking seconds.
+The evaluation suite is dominated by external LLM latency, not compute. `eval/runner.py` therefore runs cases in a `ThreadPoolExecutor` (`MAX_WORKERS`), with each worker opening its own `KiviDB` connection for safe SQLite concurrent reads (WAL mode). This collapsed the committed ~26-minute run (7 workers, free tier) into a few minutes on a review-grade key — the concurrency is a direct response to each LLM call taking seconds. (Full provenance: **Benchmark performance** below.)
 
 ### Aliases exist because metaphones don't always align
 
@@ -202,12 +215,7 @@ We considered skipping the LLM whenever evidence is strong enough to rewrite det
 
 ### Unlearn & forget (manual correction features)
 
-| Feature | Purpose |
-| ------- | ------- |
-| **`kivi penalize`** (soft "unlearn") | Reduce an entity's confidence (soft decay, `−0.15`, floored at 0) so the LLM stops applying it — without destroying learned context weights. |
-| **`kivi forget`** | Drop the entity completely via cascading delete (wipes aliases, stats, context links). |
-
-These give the user an escape hatch when a wrong learning or a misaligned LLM intervention slips through — the system is designed to be *correctable*, not just correct.
+Hard deletion (`forget`) and soft decay (`penalize`) are the user's manual override pair — see **The Correction Flow** table in *Internal Architecture* for their exact behavior. They exist as an escape hatch when a wrong learning or a misaligned LLM intervention slips through: the system is designed to be *correctable*, not just correct.
 
 ### Other decisions
 
