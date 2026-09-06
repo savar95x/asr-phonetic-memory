@@ -1,4 +1,4 @@
-# Kivi Phonetic Memory Layer
+# Kivi - Phonetic Memory Layer
 
 Kivi turns speech into text across a person's computer. An ASR model hears the words; a language model cleans and structures them; then this system — the phonetic memory layer — corrects personal terms that standard models misspell.
 
@@ -11,6 +11,10 @@ Three transcript levels matter:
 Example: `ask aditya to review the sarvam kiwi service` → `Ask Aditya to review the Sarvam Kiwi service.` → `Ask Aaditya to review the Sarvam Kivi service.`
 
 The system learns passively via `kivi learn` and applies corrections dynamically via `kivi process`, entirely bypassing hardcoded dictionaries.
+
+> [Note]
+> "Kivi" here refers to this project itself, and not Sarvam's Kivi, which is a more polished and complete speech-to-text product.
+> The kivi here deals only with the phonetic memory layer of Sarvam's Kivi.
 
 ## Directory Structure
 
