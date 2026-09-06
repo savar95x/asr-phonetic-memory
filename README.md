@@ -31,8 +31,8 @@ ASR + corrected text
   → 1. Token Alignment      (SequenceMatcher diff → <alias> → <canonical> replaces)
   → 2. Context Extraction   (±4-token window, hard-stopped at clauses, stop-words stripped)
   → 3. Phonetic Encoding    (Double Metaphone full-length keys for canonical + alias)
-  → 4. Database Upsert      (entities / aliases / local TF / global DF / system_stats)
-  → 5. Confidence Recalc    (asymptotic exponential curve)
+  → 4. Database Upsert      (idempotent merge: entities / aliases / local TF / global DF / system_stats)
+  → 5. Confidence Recalc    (asymptotic exponential curve, observations+1)
 ```
 
 | Step | What happens |
@@ -42,6 +42,20 @@ ASR + corrected text
 | **3 · Phonetic Encoding** | The canonical entity and its ASR alias are run through Double Metaphone. Raw primary and secondary keys are stored verbatim (variable length — e.g. `Atomberg → ATMPRK`, `PostgreSQL → PSTKRSKL`) so seed data and runtime lookups always agree with the same library output. |
 | **4 · Database Upsert & TF-IDF Update** | The entity, its semantic `entity_type` (e.g. `PERSON`, `TECH_TERM`), and phonetic alias are saved. Global document frequency (how many total entities / how many share this context word) and local term frequency (how often this entity appeared with the context word) are updated. |
 | **5 · Confidence Calculation** | Observation count is incremented and a continuous confidence score is recalculated using an asymptotic exponential curve, preventing single-mistake over-indexing. |
+
+#### How `kivi learn` confidently finds an already-known entity
+
+Learning is an **idempotent upsert**, never a blind insert — re-learning the same correction merges with the existing record instead of duplicating it. Every entity gets a deterministic `id` (`lower(canonical).replace(" ", "_")`), so `Neovim`, `neo vim` and `NEOVIM` all map to the same `neovim` row:
+
+| Store | Behavior on re-learn |
+| ----- | -------------------- |
+| `entities` | `INSERT ... ON CONFLICT(canonical_form) DO UPDATE` — same canonical merges; `entity_type` is preserved via `COALESCE(?, entity_type)` (never overwritten by `NULL`). |
+| `phonetic_aliases` | `INSERT OR IGNORE` — an already-known alias is not re-added. |
+| `memory_stats` | `observations_count + 1` and the confidence curve is **recomputed upward** — repeated observations (even in *different* contexts) tighten the `≥ 0.3` retrieval gate. |
+| `context_keywords` | `local_frequency + 1` on an existing link; `global_word_stats.entity_count` rises **only the first time** this entity links to that keyword. |
+| `system_stats` | `total_entities` refreshed from `COUNT(*)` so IDF math always sees the true denominator. |
+
+Re-running `kivi learn --asr "ask aditya" --final "Ask Aaditya"` therefore doesn't create a second `Aaditya` — it strengthens the existing one, and `kivi inspect` reads back the single merged record.
 
 ### The Processing Flow (`kivi process`)
 
@@ -61,7 +75,7 @@ ASR string
 | **1 · N-Gram Generation** | Extracts 1-to-3 token sliding windows from the raw ASR string. |
 | **2 · Key Computation & Squashing** | Each n-gram generates standard phonetic keys. Spaces are removed to create "squashed" keys (e.g. `neo them` → `neovim`), computing metaphones for both. |
 | **3 · Vector Retrieval (Fast Path)** | The SQLite database performs a live TF-IDF calculation filtering candidates on context overlap. If none clear the threshold (`score ≥ 0.2` and `confidence ≥ 0.3`), the LLM is bypassed entirely → 0ms latency. |
-| **4 · Context Guard (LLM Disambiguation)** | If candidates match, the raw ASR, baseline formatted text, and retrieved phonetic candidates (with their `entity_type`) go to an LLM. Driven by strict spelling rules, cross-domain collision checks, and semantic type constraints (grammatical syntax for `PERSON`, strict keywords for `TECH_TERM`), the guard decides whether to intervene, returning structured JSON. |
+| **4 · Context Guard (LLM Disambiguation)** | If candidates match, the raw ASR, baseline formatted text, and retrieved phonetic candidates (with their `entity_type`) go to an LLM. Driven by strict spelling rules, cross-domain collision checks, and semantic type constraints (grammatical syntax for `PERSON`, strict keywords for `TECH_TERM`), the guard decides whether to intervene, returning structured JSON. The call is made deterministic (`temperature=0.0`, strict JSON mode, `MAX_RETRIES` on the client) so identical inputs produce stable output. |
 
 ### The Correction Flow (`kivi forget` / `kivi penalize`)
 
@@ -142,12 +156,64 @@ Indexes: `entities(primary_metaphone)`, `phonetic_aliases(primary_metaphone)`, `
 
 ---
 
-## Decisions & Challenges
+## Decisions, Challenges & Problems Faced
+
+A record of the real problems hit while building this — and the decisions that solved each one.
+
+### Contextualising names (`entity_type`)
+
+Names almost always appear beside *generic*, meaningless words ("met **with** aditya", "aditya **said**..."), so a PERSON's lexical context keywords are weak evidence on their own. The system solves this in two ways:
+
+* **`entity_type` routing in the guard.** `PERSON` candidates are validated with grammatical/syntactic reasoning (agentive verbs, name positions like *"called X"*, *"met with X"*) even when context keywords are empty; `TECH_TERM` candidates demand strict domain-keyword evidence to avoid dictionary-word collisions.
+* **`--type` flags (optional hint, not a requirement).** `kivi learn --type PERSON` attaches the type when the caller knows it. The frontend usually won't know the type, so the tool never *requires* it — but when supplied, it's extra context that materially improves the LLM's decision.
+
+### Accidental multi-word splits vs. intended multi-word entities (the dual n-gram key)
+
+ASR can split **one** word into several (`adam berg` → `Atomberg`), but the system must **not** collapse genuinely multi-word entities (`max pain` → `Max Payne`, `crash royal` → `Clash Royale`, `boyd linux` → `Void Linux`) into a single word. `memory.py` therefore computes **both** keys for every 1–3 n-gram:
+
+* a **standard key** preserving word boundaries (matches the intended multi-word entities), and
+* a **squashed key** with spaces removed (matches accidentally-split compounds).
+
+Whichever key hits the phonetic index wins — so split compounds are caught *and* true multi-word names stay intact.
+
+### Learning the final word because of a trailing full-stop
+
+Without care, `"...the Kubernetes."` vs `"...the Kubernetes"` looks like a two-word replace and `kubernetes.` gets learned as a bogus entity. Fix: every token is punctuation-stripped **before** diffing, and any pair where `alias.lower() == canonical.lower()` is skipped entirely. Punctuation-only corrections (trailing full-stops included) are therefore never learned — the period stays in the *output* text only, never in memory.
+
+### Generic context noise (`is`, `am`, `the`, `are`, `were`, …)
+
+High-frequency filler words leak into context windows and drown out real signals. Three coordinated defenses:
+
+1. **Exhaustive stop-word list** — ~150 articles, pronouns, prepositions, auxiliary verbs, conjunctions, adverbs and speech fillers (`aligner.py.STOP_WORDS`) are filtered out at learning time.
+2. **Frequency weighting** — global **IDF** (*inverse*): a word shared by many entities (e.g. `the`, `said`) gets near-zero weight; local **TF** (*additive*): repeated co-occurrence with *one* entity boosts only that entity.
+3. **Strict clause boundaries** — context collection hard-stops at conjunctions and punctuation so it never bleeds across a clause.
+
+### Concurrency because results are slow
+
+The evaluation suite is dominated by external LLM latency, not compute. `eval/runner.py` therefore runs cases in a `ThreadPoolExecutor` (`MAX_WORKERS`), with each worker opening its own `KiviDB` connection for safe SQLite concurrent reads (WAL mode). This collapsed ~26 minutes (7 workers, free tier) into a few minutes on a review-grade key — the concurrency is a direct response to each LLM call taking seconds.
+
+### Aliases exist because metaphones don't always align
+
+Retrieval matches by **Double Metaphone key** (primary/secondary), never by literal string — so `adam berg`, `atom berg` and `atomburg` all resolve to `Atomberg` via a single alias row. But some sound-alike pairs have *genuinely different* keys (`Cognito` = `KNT/KKNT`, `incognito` = `ANKNT/ANKKNT`); those need an explicit alias row (`incognito → cognito`) to carry the phonetic bridge across keys the algorithm can't derive on its own.
+
+### Deliberately NOT built: deterministic fast-path rewriting
+
+We considered skipping the LLM whenever evidence is strong enough to rewrite deterministically (cutting latency further). We chose **not** to build it: the guard is exactly the layer that refuses dictionary-word collisions (`kiwi`/`Kivi`, `avoid`/`Void`), and routing every non-zero-candidate hit through it is cheap insurance against false positives. Latency is instead bounded by the zero-candidate fast path (~0ms) and `MAX_WORKERS` concurrency in eval.
+
+### Unlearn & forget (manual correction features)
+
+| Feature | Purpose |
+| ------- | ------- |
+| **`kivi penalize`** (soft "unlearn") | Reduce an entity's confidence (soft decay, `−0.15`, floored at 0) so the LLM stops applying it — without destroying learned context weights. |
+| **`kivi forget`** | Drop the entity completely via cascading delete (wipes aliases, stats, context links). |
+
+These give the user an escape hatch when a wrong learning or a misaligned LLM intervention slips through — the system is designed to be *correctable*, not just correct.
+
+### Other decisions
 
 | Challenge | How it was solved |
 | --------- | ----------------- |
 | **In-Database Math over Python Processing** | Instead of dumping thousands of keyword rows into Python per request, `math.log` is registered into the SQLite connection so candidate filtering runs entirely inside the C-optimized SQL engine → microsecond retrieval. |
-| **Compound Word Splitting** | ASR models insert spaces into single entities (`Atomberg` → `Adam Berg`). Standard n-gram phonetic matching fails because `Adam`/`Berg` hash separately. The **Squashed Key** algorithm in `memory.py` strips spaces from 2- and 3-grams before phonetic encoding, so `Adam Berg` hits the exact same index as `Atomberg`. |
 | **LLM Over-Correction** | Early iterations saw the LLM replacing valid English words with similar-sounding entities on weak context. Fixed with strict cross-domain collision rules in `guard.py`, `entity_type` semantic parsing, a strict `{output, interventions}` JSON contract, and the `kivi penalize` command to manually decay repeat offenders. |
 
 ---
