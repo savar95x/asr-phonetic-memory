@@ -10,7 +10,8 @@ Aligns an ASR transcript with a ground-truth transcript, extracts mismatched ent
 * **Positional Mapping:** When multiple entities are extracted from a single sentence, `--type` flags map left-to-right.
 * **Safe Evolution:** If fewer `--type` flags are provided than extracted entities, the missing ones default to `NULL`. The database uses `COALESCE` to preserve existing types if `NULL` is passed.
 * **Excess Types:** Passing more `--type` flags than extracted entities triggers a CLI warning and ignores the excess.
-* **Punctuation Immunity:** Identical tokens with different punctuation are ignored to prevent learning punctuation corrections.
+* **Idempotent Merge:** Re-learning a correction that already exists **merges** with the stored entity (deterministic `id` = `lower(canonical).replace(" ","_")`) — it never duplicates. `observations_count` and confidence increase, existing aliases are left alone, and per-keyword `local_frequency` is bumped. See README → "How `kivi learn` confidently finds an already-known entity".
+* **Punctuation Immunity:** Every token is punctuation-stripped *before* diffing, so `"Kubernetes."` vs `"Kubernetes"` diff as equal — punctuation-only corrections (including a trailing full-stop on the final word) are never learned.
 
 
 
@@ -22,7 +23,8 @@ Executes phonetic indexing, sliding-window n-gram retrieval, and LLM-guarded con
 * **Example:** `kivi process --asr "open neo them" --fmt "Open neo them."`
 * **Quirks & Edge Cases:**
 * **Zero-Candidate Shortcut:** If the DB sliding window finds no phonetic matches, the command bypasses the LLM entirely, returning the exact `--fmt` string with near-zero latency.
-* **Squashed Keys:** Automatically concatenates n-grams (e.g., "atom berg" -> "atomberg") to catch wrongly split compound entities.
+* **Squashed Keys:** Automatically concatenates n-grams (e.g., "atom berg" -> "atomberg") to catch wrongly split compound entities — while still matching the *standard* (space-preserving) key so intended multi-word entities like "Max Payne" are never collapsed.
+* **Deterministic Guard:** When the LLM guard runs, it uses `temperature=0.0`, strict JSON mode, and `MAX_RETRIES` retries (default 2, env `MAX_RETRIES`) so identical inputs produce stable output.
 
 
 
@@ -81,9 +83,10 @@ Wipes the SQLite database and reapplies the clean schema.
 Executes the evaluation benchmark suite against a provided JSON dataset.
 
 * **Syntax:** `kivi eval --dataset <path_to_json> --output <path_to_save>`
-* **Example:** `kivi eval --dataset tests/bench.json --output results.json`
+* **Example:** `kivi eval --dataset eval/dataset.json --output eval/results.json`
 * **Quirks & Edge Cases:**
 * Requires the input `--dataset` path to physically exist before running, otherwise Click will immediately throw a path validation error.
+* Worker count is configurable via the `MAX_WORKERS` env var (default `20`; lower to `7` if your API key is rate-limited, e.g. free tier). The committed `eval/results.json` was generated at 7 workers.
 
 # RUN.md
 

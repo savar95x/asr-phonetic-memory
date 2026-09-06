@@ -141,7 +141,7 @@ Results are written to the path given by `--output`; the command above regenerat
 * `intervention_accuracy` — useful interventions ÷ expected interventions (true positives).
 * `false_positive_rate` — unnecessary interventions ÷ negative cases.
 * `p50_latency_ms` — median latency across all cases.
-* `total_estimated_tokens` and `total_estimated_cost_usd` — heuristic estimate (see README's "Token & Cost Estimation Discrepancies").
+* `total_estimated_tokens` and `total_estimated_cost_usd` — heuristic estimate (see README's "Token & Cost estimation discrepancies").
 * `database_size_kb` — database growth on disk.
 
 ### Benchmark notes (fresh vs committed results)
