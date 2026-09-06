@@ -12,13 +12,15 @@
 
 ## Environment Variables
 
-Create a `.env` file in the project root. A ready-made template is committed at `.env.example` (copy it and fill in your key). All three variables are **required** and are read directly by `src/engine/guard.py`:
+Create a `.env` file in the project root. A ready-made template is committed at `.env.example` (copy it and fill in your key). `API_BASE`, `API_KEY`, and `MODEL` are **required** and are read directly by `src/engine/guard.py`; `MAX_WORKERS` and `MAX_RETRIES` are **optional** and have sensible defaults:
 
-| Variable    | Description                                                          |
-| ----------- | -------------------------------------------------------------------- |
-| `API_BASE`  | Base URL of the OpenAI-compatible chat completions endpoint.          |
-| `API_KEY`   | Your secret API key. Never commit the real value — `.env` is gitignored. |
-| `MODEL`     | Model id used by the guard (e.g. `qwen3.6-plus`, `qwen3.6-flash`).    |
+| Variable       | Description                                                             | Default |
+| -------------- | ----------------------------------------------------------------------- | ------- |
+| `API_BASE`     | Base URL of the OpenAI-compatible chat completions endpoint.             | —       |
+| `API_KEY`      | Your secret API key. Never commit the real value — `.env` is gitignored. | —       |
+| `MODEL`        | Model id used by the guard (e.g. `qwen3.6-plus`, `qwen3.6-flash`).       | —       |
+| `MAX_WORKERS`  | Concurrent worker threads for `kivi eval` (`eval/runner.py`). Lower to `7` if rate-limited on a free key. | `20` |
+| `MAX_RETRIES`  | Automatic retries per LLM API request (`src/engine/guard.py`).          | `2`     |
 
 ## Setup & Installation
 
@@ -121,7 +123,7 @@ This rewrites the SQL file in place using the library's own outputs — no hand-
 The complete evaluation lives in `eval/`:
 
 * `eval/dataset.json` — **500** cases: **343** where memory should intervene (direct recall, word-boundary splits, phonetic drift) and **157** where it should deliberately do nothing (dictionary words, weak evidence, cross-domain collisions).
-* `eval/runner.py` — the benchmark engine. It bypasses the CLI subprocess overhead and executes against the Python engine directly with `ThreadPoolExecutor` (`max_workers=20` by default).
+* `eval/runner.py` — the benchmark engine. It bypasses the CLI subprocess overhead and executes against the Python engine directly with `ThreadPoolExecutor` (`max_workers` defaults to 20, configurable via the `MAX_WORKERS` env var).
 * `eval/results.json` — the generated evaluation results (committed).
 
 ### Exact command to run the evaluation
@@ -144,7 +146,7 @@ Results are written to the path given by `--output`; the command above regenerat
 
 ### Benchmark notes (fresh vs committed results)
 
-The committed `eval/results.json` was produced with **`qwen3.6-plus`** using **7 worker threads** on the free API tier (free-tier rate limiting made 20 workers heavy), taking ~26 minutes. The runner itself defaults to 20 workers, which is appropriate for review-grade API keys; with a normal-rate key the suite finishes in a few minutes. Estimations use the rates embedded in `eval/runner.py`: $0.1875 / 1M input tokens and $1.125 / 1M output tokens.
+The committed `eval/results.json` was produced with **`qwen3.6-plus`** using **7 worker threads** (`MAX_WORKERS=7`) on the free API tier (free-tier rate limiting made 20 workers heavy), taking ~26 minutes. The runner defaults to `MAX_WORKERS=20`, which is appropriate for review-grade API keys; with a normal-rate key the suite finishes in a few minutes. Estimations use the rates embedded in `eval/runner.py`: $0.1875 / 1M input tokens and $1.125 / 1M output tokens.
 
 ## Resetting the System (Exact Procedure)
 

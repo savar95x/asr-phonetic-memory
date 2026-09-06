@@ -82,8 +82,10 @@ def run_eval(dataset_path: str, output_path: str):
     
     results = []
     
+    default_workers = int(os.environ.get("MAX_WORKERS", "20"))
+    
     # Map guarantees the exact original JSON array order is preserved
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=default_workers) as executor:
         for case, output in executor.map(evaluate_single_case, test_cases):
             is_negative = case['expected_target'] is None
             

@@ -8,7 +8,7 @@ def resolve_ambiguity(asr: str, fmt: str, candidates: List[dict]) -> dict:
     client = OpenAI(
         base_url=os.environ["API_BASE"],
         api_key=os.environ["API_KEY"],
-        max_retries=2
+        max_retries=int(os.environ.get("MAX_RETRIES", "2"))
     )
     
     system_prompt = """You are a phonetic memory disambiguation guard for an ASR formatting pipeline.
