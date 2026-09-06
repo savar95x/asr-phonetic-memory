@@ -321,3 +321,13 @@ The evaluation suite reports ~281k estimated tokens ($0.08), whereas upstream AP
 
 * **Heuristic vs. Byte-Pair Tokenization:** The runner uses a character-length heuristic (`char_len // 4`), which breaks down on arbitrary Double Metaphone consonant hashes (e.g. `PSTKRSKL`, `ARXLNKS`) and indented JSON schema syntax — these out-of-vocabulary strings split into 1–2 character fragments per token.
 * **Prompt & Chat Template Overhead:** OpenAI-compatible wrappers inject role tokens, message delimiters, and formatting templates that raw string-length math omits.
+
+---
+
+## AI Use
+
+Where AI assisted in this repository, transparently:
+
+* **In the product:** the only AI model call in the loop is the LLM context guard (`src/engine/guard.py`), invoked only when phonetic candidates already matched memory. It sends the raw ASR text, the baseline formatted text, and the retrieved candidates to an OpenAI-compatible chat-completions model under a strict JSON contract with `temperature=0.0`. Every other layer — phonetic hashing, TF-IDF scoring, confidence, retrieval — is deterministic and runs locally; zero-candidate queries never reach the model.
+* **In building the software:** the majority of the codebase was researched and written with **Gemini 3.1 Pro (web app)** used as the coding assistant, which was also used for debugging and improving output when results weren't up to mark. The author retained the final say on every architectural decision and on system design — the assistant proposed, the author decided.
+* **In the documentation:** the docs began as an author-drafted layout and were expanded and refined by a coding agent (**opencode**, free tier) to match the assignment-brief requirements and elaborate the decisions behind the design; the author reviewed and approved the final wording.
