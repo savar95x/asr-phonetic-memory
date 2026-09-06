@@ -12,7 +12,7 @@ Example: `ask aditya to review the sarvam kiwi service` → `Ask Aditya to revie
 
 The system learns passively via `kivi learn` and applies corrections dynamically via `kivi process`, entirely bypassing hardcoded dictionaries.
 
-> [Note]
+> [!Note]
 > "Kivi" here refers to this project itself, and not Sarvam's Kivi, which is a more polished and complete speech-to-text product.
 > The kivi here deals only with the phonetic memory layer of Sarvam's Kivi.
 
