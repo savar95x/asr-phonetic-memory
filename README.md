@@ -143,12 +143,15 @@ Indexes: `entities(primary_metaphone)`, `phonetic_aliases(primary_metaphone)`, `
 
 Committed `eval/results.json` generated with `qwen3.6-plus` at 7 workers (~26 min on free tier). Runner defaults to `MAX_WORKERS=20` for review-grade keys.
 
-Token cost estimate (~281k tokens, $0.08) differs from API-reported ~900k due to heuristic `char_len // 4` counting vs. actual BPE tokenization plus chat template overhead.
+Token cost estimate (~281k tokens, $0.08) under-reports vs. API-reported ~900k for two reasons:
+
+- **Heuristic vs. byte-pair tokenization:** `eval/runner.py` estimates tokens as `char_len // 4`. That breaks on out-of-vocabulary strings like Double Metaphone consonant hashes (`PSTKRSKL`, `ARXLNKS`) and indented JSON schema syntax, which BPE splits into 1–2 character fragments per token.
+- **Prompt & chat template overhead:** OpenAI-compatible wrappers inject role tokens, message delimiters, and formatting templates that raw string-length math omits.
 
 ## AI Use
 
 - **In the product:** The LLM context guard (`src/engine/guard.py`) is the only AI model call in the loop. It runs only when phonetic candidates match, sending raw ASR text, formatted text, and candidates to an OpenAI-compatible model at `temperature=0.0`. Every other layer — phonetic hashing, TF-IDF scoring, confidence, retrieval — is deterministic and local. Zero-candidate queries never reach the model.
 - **In building the software:** Initial research and codebase structure were developed with Gemini 3.1 Pro. All architectural decisions and system design were made by me.
-- **In the documentation:** I wrote the basic structure; docs were expanded and refined by a coding agent (opencode).
+- **In the documentation:** I wrote the basic structure; docs were expanded and refined by a coding agent (opencode, free tier).
 
 All debugging and architectural decisions were mine — AI suggested, but I researched and built only what was needed, balancing accuracy and UX.
