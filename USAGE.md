@@ -7,7 +7,9 @@ Per-command reference for the `kivi` CLI. For setup, env vars, evaluation, and r
 Aligns an ASR transcript with a ground-truth transcript, extracts mismatched entity pairs, computes phonetic keys, and updates memory weights.
 
 * **Syntax:** `kivi learn --asr <text> --final <text> [--type <type_name>]...`
-* **Example:** `kivi learn --asr "neo them" --final "Neovim" --type TECH_TERM`
+* **Examples:**
+  * `kivi learn --asr "neo them" --final "Neovim" --type TECH_TERM`
+  * Multiple `--type` flags are allowed — they map left-to-right to the extracted entities: `kivi learn --asr "meet aditya and install neo them" --final "Meet Aaditya and install Neovim" --type PERSON --type TECH_TERM`
 * **Output:** JSON `{"learned": [ {canonical, alias, entity_type, primary_metaphone, secondary_metaphone, extracted_context, updated_context_weights, confidence_score} ]}`. An empty `learned` array means nothing worth learning was found (e.g. a punctuation-only correction).
 * **Edge cases:**
   * `--type` flags map left-to-right to extracted entities; extras trigger a warning, missing ones default to `NULL` (the DB preserves existing types via `COALESCE`).

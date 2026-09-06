@@ -35,7 +35,7 @@ cp .env.example .env   # then put your real API_KEY inside .env
 
 ## Database Creation, Migration & Seeding
 
-SQLite "migrations" are idempotent DDL — `kivi reset` drops and reapplies `src/db/schema.sql`. Seeding loads the baseline memory from `seeds/default.sql`.
+SQLite needs no migration tool. `src/db/schema.sql` is idempotent DDL — it drops existing tables and recreates them from scratch (all data wiped). `kivi reset` re-applies it; `--seed` then loads the baseline memory from `seeds/default.sql`.
 
 ```bash
 kivi reset --seed   # create .kivi/memory.db + schema + 50 baseline entities
