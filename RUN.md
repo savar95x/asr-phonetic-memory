@@ -6,7 +6,7 @@
 
 ## Prerequisites (Runtimes & Versions)
 
-* **Python 3.10+** (developed on CPython 3.14; any 3.10+ interpreter works).
+* **Python 3.10+** (developed on Python 3.14; any 3.10+ interpreter works).
 * An **OpenAI-compatible API key** for the context-guard LLM (any provider exposing a `/v1/chat/completions` endpoint; the repo defaults to the DashScope Alibaba Cloud compatible-mode endpoint).
 * `git` (only to clone the repository).
 

@@ -1,28 +1,15 @@
 # Kivi Phonetic Memory Layer
 
-This text-to-text pipeline bridges the gap between raw Automatic Speech Recognition (ASR) hypotheses and final formatted text. It acts as a **personalized phonetic memory** system, learning a user's unique vocabulary — names, companies, slang, and domain-specific terms — that standard models frequently transcribe *phonetically* but misspell.
+There are three transcript levels: ASR, Formatted (punctuated), and Memory aware.  
+This text-to-text tool that takes in the ASR and Formatted sentence, and outputs a Memory-aware final sentence.
 
-The system builds this memory passively using `kivi learn` (by extracting context around corrections) and applies it dynamically using `kivi process` to correct future transcriptions with context-aware precision, entirely bypassing hardcoded dictionaries.
+It acts as a **personalized phonetic memory** system, learning a user's unique vocabulary — names, companies, slang, and domain-specific terms — that standard models frequently transcribe *phonetically* but misspell.
 
----
+The system builds this memory passively using `kivi learn` and applies it dynamically using `kivi process` to correct future transcriptions with context-aware precision, entirely bypassing hardcoded dictionaries.
 
-## Three Transcript Levels
+# Internal Architecture
 
-Every input the system touches exists at one of three levels (from the assignment brief):
-
-| Level | Example |
-| ----- | ------- |
-| **1 · ASR output** (raw speech-recognition) | `ask aditya to review the sarvam kiwi service` |
-| **2 · Formatted output** (after LLM cleanup) | `Ask Aditya to review the Sarvam Kiwi service.` |
-| **3 · Memory-aware output** (after Kivi knows the user) | `Ask Aaditya to review the Sarvam Kivi service.` |
-
-Kivi's job: **reliably turn level 1/2 into level 3, but ONLY when the evidence warrants it.**
-
----
-
-## Internal Architecture
-
-### The Learning Flow (`kivi learn`)
+## The Learning Flow (`kivi learn`)
 
 This flow processes ground-truth corrections to extract, encode, and memorize phonetic patterns.
 
@@ -43,7 +30,7 @@ ASR + corrected text
 | **4 · Database Upsert & TF-IDF Update** | The entity, its semantic `entity_type` (e.g. `PERSON`, `TECH_TERM`), and phonetic alias are saved. Global document frequency (how many total entities / how many share this context word) and local term frequency (how often this entity appeared with the context word) are updated. |
 | **5 · Confidence Calculation** | Observation count is incremented and a continuous confidence score is recalculated using an asymptotic exponential curve, preventing single-mistake over-indexing. |
 
-#### How `kivi learn` confidently finds an already-known entity
+### How `kivi learn` confidently finds an already-known entity
 
 Learning is an **idempotent upsert**, never a blind insert — re-learning the same correction merges with the existing record instead of duplicating it. Every entity gets a deterministic `id` (`lower(canonical).replace(" ", "_")`), so `Neovim`, `neo vim` and `NEOVIM` all map to the same `neovim` row:
 
@@ -57,7 +44,7 @@ Learning is an **idempotent upsert**, never a blind insert — re-learning the s
 
 Re-running `kivi learn --asr "ask aditya" --final "Ask Aaditya"` therefore doesn't create a second `Aaditya` — it strengthens the existing one, and `kivi inspect` reads back the single merged record.
 
-### The Processing Flow (`kivi process`)
+## The Processing Flow (`kivi process`)
 
 This flow applies memory to live, raw ASR transcripts to resolve phonetic collisions.
 
@@ -77,7 +64,7 @@ ASR string
 | **3 · Vector Retrieval (Fast Path)** | The SQLite database performs a live TF-IDF calculation filtering candidates on context overlap. If none clear the threshold (`score ≥ 0.2` and `confidence ≥ 0.3`), the LLM is bypassed entirely → 0ms latency. |
 | **4 · Context Guard (LLM Disambiguation)** | If candidates match, the raw ASR, baseline formatted text, and retrieved phonetic candidates (with their `entity_type`) go to an LLM. Driven by strict spelling rules, cross-domain collision checks, and semantic type constraints (grammatical syntax for `PERSON`, strict keywords for `TECH_TERM`), the guard decides whether to intervene, returning structured JSON. The call is made deterministic (`temperature=0.0`, strict JSON mode, `MAX_RETRIES` on the client) so identical inputs produce stable output. |
 
-### The Correction Flow (`kivi forget` / `kivi penalize`)
+## The Correction Flow (`kivi forget` / `kivi penalize`)
 
 Manual control over incorrect learnings and misaligned LLM interventions.
 
@@ -169,18 +156,18 @@ Where each command actually lives when reading the implementation:
 
 ---
 
-## Decisions, Challenges & Problems Faced
+# Decisions, Challenges & Problems Faced
 
 A record of the real problems hit while building this — and the decisions that solved each one.
 
-### Contextualising names (`entity_type`)
+## Contextualising names (`entity_type`)
 
 Names almost always appear beside *generic*, meaningless words ("met **with** aditya", "aditya **said**..."), so a PERSON's lexical context keywords are weak evidence on their own. The system solves this in two ways:
 
 * **`entity_type` routing in the guard.** `PERSON` candidates are validated with grammatical/syntactic reasoning (agentive verbs, name positions like *"called X"*, *"met with X"*) even when context keywords are empty; `TECH_TERM` candidates demand strict domain-keyword evidence to avoid dictionary-word collisions.
 * **`--type` flags (optional hint, not a requirement).** `kivi learn --type PERSON` attaches the type when the caller knows it. The frontend usually won't know the type, so the tool never *requires* it — but when supplied, it's extra context that materially improves the LLM's decision.
 
-### Accidental multi-word splits vs. intended multi-word entities (the dual n-gram key)
+## Accidental multi-word splits vs. intended multi-word entities (the dual n-gram key)
 
 ASR can split **one** word into several (`adam berg` → `Atomberg`), but the system must **not** collapse genuinely multi-word entities (`max pain` → `Max Payne`, `crash royal` → `Clash Royale`, `boyd linux` → `Void Linux`) into a single word. `memory.py` therefore computes **both** keys for every 1–3 n-gram:
 
@@ -189,11 +176,11 @@ ASR can split **one** word into several (`adam berg` → `Atomberg`), but the sy
 
 Whichever key hits the phonetic index wins — so split compounds are caught *and* true multi-word names stay intact.
 
-### Learning the final word because of a trailing full-stop
+## Learning the final word because of a trailing full-stop
 
 Without care, `"...the Kubernetes."` vs `"...the Kubernetes"` looks like a two-word replace and `kubernetes.` gets learned as a bogus entity. Fix: every token is punctuation-stripped **before** diffing, and any pair where `alias.lower() == canonical.lower()` is skipped entirely. Punctuation-only corrections (trailing full-stops included) are therefore never learned — the period stays in the *output* text only, never in memory.
 
-### Generic context noise (`is`, `am`, `the`, `are`, `were`, …)
+## Generic context noise (`is`, `am`, `the`, `are`, `were`, …)
 
 High-frequency filler words leak into context windows and drown out real signals. Three coordinated defenses:
 
@@ -201,11 +188,11 @@ High-frequency filler words leak into context windows and drown out real signals
 2. **Frequency weighting** — global **IDF** (*inverse*): a word shared by many entities (e.g. `the`, `said`) gets near-zero weight; local **TF** (*additive*): repeated co-occurrence with *one* entity boosts only that entity.
 3. **Strict clause boundaries** — context collection hard-stops at conjunctions and punctuation so it never bleeds across a clause.
 
-### Concurrency because results are slow
+## Concurrency because results are slow
 
 The evaluation suite is dominated by external LLM latency, not compute. `eval/runner.py` therefore runs cases in a `ThreadPoolExecutor` (`MAX_WORKERS`), with each worker opening its own `KiviDB` connection for safe SQLite concurrent reads (WAL mode). This collapsed the committed ~26-minute run (7 workers, free tier) into a few minutes on a review-grade key — the concurrency is a direct response to each LLM call taking seconds. (Full provenance: **Benchmark performance** below.)
 
-### Aliases exist because metaphones don't always align
+## Aliases exist because metaphones don't always align
 
 Retrieval matches by **Double Metaphone key** (primary/secondary), never by literal string — so `adam berg`, `atom berg` and `atomburg` all resolve to `Atomberg` via a single alias row. But some sound-alike pairs have *genuinely different* keys (`Cognito` = `KNT/KKNT`, `incognito` = `ANKNT/ANKKNT`); those need an explicit alias row (`incognito → cognito`) to carry the phonetic bridge across keys the algorithm can't derive on its own.
 
@@ -213,15 +200,15 @@ Aliases are written **only at learn time** (`db.learn_entity`) and read **only d
 
 Why not an Indic-phonetic core (e.g. IndicSoundex) instead of Double Metaphone? Double Metaphone is Anglocentric, which is exactly *why* disjoint-key pairs like `Cognito`/`incognito` need the alias bridge. An Indic-aware encoder would collapse more of those — **shrinking** the alias table — but can't **replace** it: the same vocabulary contains global tech terms (`PostgreSQL`, `Grafana`, `Linux`) whose keys such an encoder would mis-derive. Inclusive general core + an exception bridge is the deliberate design.
 
-### Deliberately NOT built: deterministic fast-path rewriting
+## Deliberately NOT built: deterministic fast-path rewriting
 
 We considered skipping the LLM whenever evidence is strong enough to rewrite deterministically (cutting latency further). We chose **not** to build it: the guard is exactly the layer that refuses dictionary-word collisions (`kiwi`/`Kivi`, `avoid`/`Void`), and routing every non-zero-candidate hit through it is cheap insurance against false positives. Latency is instead bounded by the zero-candidate fast path (~0ms) and `MAX_WORKERS` concurrency in eval.
 
-### Unlearn & forget (manual correction features)
+## Unlearn & forget (manual correction features)
 
 Hard deletion (`forget`) and soft decay (`penalize`) are the user's manual override pair — see **The Correction Flow** table in *Internal Architecture* for their exact behavior. They exist as an escape hatch when a wrong learning or a misaligned LLM intervention slips through: the system is designed to be *correctable*, not just correct.
 
-### Other decisions
+## Other decisions
 
 | Challenge | How it was solved |
 | --------- | ----------------- |
@@ -230,9 +217,9 @@ Hard deletion (`forget`) and soft decay (`penalize`) are the user's manual overr
 
 ---
 
-## Limitations, Edge Cases & What Kivi Does Well
+# Limitations, Edge Cases & What Kivi Does Well
 
-### What the system is *good at* — an exhaustive taxonomy of phonetic memory
+## What the system is *good at* — an exhaustive taxonomy of phonetic memory
 
 Kivi's strength is resolving the many ways a spoken term can be transcribed wrong. Below is the complete taxonomy of phonetic-memory cases the system handles — with real examples from `eval/dataset.json` (each maps a mis-transcribed ASR phrase to the corrected entity):
 
@@ -285,7 +272,7 @@ When several learned entities appear in one transcript, each is resolved indepen
 - `aditya configured neo them terminal with a jason payload` → `Neovim`.
 - `deploy neo them to cube are net is` → both `Neovim` and `Kubernetes` are resolved.
 
-### How the system decides "do nothing"
+## How the system decides "do nothing"
 
 "Deliberately doing nothing" is engineered at multiple layers, not left to chance:
 
@@ -296,13 +283,13 @@ When several learned entities appear in one transcript, each is resolved indepen
 | Weak TF-IDF context | Matching entities whose surrounding words don't fit. |
 | LLM cross-domain rules | Valid dictionary words (kiwi, avoid, salary) in non-technical contexts. |
 
-### Known limitations
+## Known limitations
 
 * **Latency:** While zero-candidate queries safely bypass the LLM (0ms overhead), ambiguous phonetic matches require an external API call, introducing network latency governed by the upstream LLM provider.
 * **Collisions:** If two nearly identical phonetic entities (e.g. `Stephen`/`Steven`) share very similar global word statistics, the system leans on the LLM's default spelling rules, which can occasionally cause false positives.
 * **N-gram window cap:** The retrieval window is capped at 3 tokens, so a proper noun split into 4+ words will not line up.
 
-### Benchmark performance
+## Benchmark performance
 
 | Metric | Value |
 | ------ | ----- |
@@ -315,7 +302,7 @@ When several learned entities appear in one transcript, each is resolved indepen
 
 The high benchmark p50 is largely an artifact of free-tier API queuing and concurrency rate-limiting during bulk execution. In standard single-turn CLI usage (`kivi process`), calls typically complete in sub-10 seconds, while local SQLite TF-IDF retrieval consistently executes in under 5ms.
 
-### Token & Cost estimation discrepancies
+## Token & Cost estimation discrepancies
 
 The evaluation suite reports ~281k estimated tokens ($0.08), whereas upstream API metrics logged ~900k. This arises from:
 
@@ -324,10 +311,12 @@ The evaluation suite reports ~281k estimated tokens ($0.08), whereas upstream AP
 
 ---
 
-## AI Use
+# AI Use
 
-Where AI assisted in this repository, transparently:
+Where AI assisted in this repository:  
 
-* **In the product:** the only AI model call in the loop is the LLM context guard (`src/engine/guard.py`), invoked only when phonetic candidates already matched memory. It sends the raw ASR text, the baseline formatted text, and the retrieved candidates to an OpenAI-compatible chat-completions model under a strict JSON contract with `temperature=0.0`. Every other layer — phonetic hashing, TF-IDF scoring, confidence, retrieval — is deterministic and runs locally; zero-candidate queries never reach the model.
-* **In building the software:** the majority of the codebase was researched and written with **Gemini 3.1 Pro (web app)** used as the coding assistant, which was also used for debugging and improving output when results weren't up to mark. The author retained the final say on every architectural decision and on system design — the assistant proposed, the author decided.
-* **In the documentation:** the docs began as an author-drafted layout and were expanded and refined by a coding agent (**opencode**, free tier) to match the assignment-brief requirements and elaborate the decisions behind the design; the author reviewed and approved the final wording.
+* **In the product:** The only AI model call in the loop is the LLM context guard (`src/engine/guard.py`), invoked only when phonetic candidates already matched memory. It sends the raw ASR text, the baseline formatted text, and the retrieved candidates to an OpenAI-compatible chat-completions model under a strict JSON contract with `temperature=0.0`. Every other layer — phonetic hashing, TF-IDF scoring, confidence, retrieval — is deterministic and runs locally; zero-candidate queries never reach the model.
+* **In building the software:** The initial research, and the structure and majority of the codebase is written with Gemini 3.1 Pro (web app). Though, I retained the final say on every architectural decision and on system design.
+* **In the documentation:** I wrote the basic structure of the docs, but were expanded and refined on by a coding agent (opencode, free tier).
+
+Note that all debugging (like weak performance), and architectural decisions were mine in the end of the day, AI just suggested, but I rigoursly researched and made sure to only build what's needed, balancing between accuracy and UX.  
