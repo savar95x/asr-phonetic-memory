@@ -118,6 +118,21 @@ the whole point: one alias row covers *every* spelling variant that shares its p
 (An earlier buggy iteration tried to confirm matches against the literal context word — that
 only caught exact string repeats and missed the variants the metaphone index exists to catch.)
 
+### Why the alias exists at all (and why a "better" alphabet wouldn't remove it)
+The stack really has two independent sources of truth for "what this entity sounds like": the
+entity's own keys and its alias keys. The alias is the load-bearing one: Double Metaphone is
+Anglocentric, so morphologically-related spellings can land on **disjoint** key families that
+no string-level rule bridges (`Cognito` = `KNT/KKNT`, `incognito` = `ANKNT/ANKKNT`). The alias
+row stores the alternate's keys, and retrieval (`db.get_candidates`) ORs alias keys into the
+same WHERE clause — so the spoken form resolves even though the two words never share a key.
+
+Could an Indic-phonetic encoder (e.g. IndicSoundex) replace Double Metaphone and kill the table?
+Partly: it would collapse more Indic name-variants (`Aaditya`/`Aditya`) into one key and shrink
+the alias list — but it can't remove the table entirely, because the vocabulary is not
+Indic-only (`PostgreSQL`, `Grafana`, `Linux`, `JSON` are global terms an Indic alphabet would
+mis-derive). Double Metaphone stays the inclusive general core; the alias table is the deliberate
+exception bridge around its blind spots.
+
 ### Why keys are stored at FULL length (not truncated to 4)
 The classic Double Metaphone spec caps codes at **4 characters**. This Python library does
 **not** necessarily truncate: it returns e.g. `PSTKRSKL` (8 chars) for `PostgreSQL`,

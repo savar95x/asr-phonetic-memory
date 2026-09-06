@@ -209,6 +209,10 @@ The evaluation suite is dominated by external LLM latency, not compute. `eval/ru
 
 Retrieval matches by **Double Metaphone key** (primary/secondary), never by literal string — so `adam berg`, `atom berg` and `atomburg` all resolve to `Atomberg` via a single alias row. But some sound-alike pairs have *genuinely different* keys (`Cognito` = `KNT/KKNT`, `incognito` = `ANKNT/ANKKNT`); those need an explicit alias row (`incognito → cognito`) to carry the phonetic bridge across keys the algorithm can't derive on its own.
 
+Aliases are written **only at learn time** (`db.learn_entity`) and read **only during retrieval** — `db.get_candidates` keys its WHERE clause on `entities` *and* `phonetic_aliases` metaphones jointly (`client.py`). They never gate learning, inspect, forget, or penalize.
+
+Why not an Indic-phonetic core (e.g. IndicSoundex) instead of Double Metaphone? Double Metaphone is Anglocentric, which is exactly *why* disjoint-key pairs like `Cognito`/`incognito` need the alias bridge. An Indic-aware encoder would collapse more of those — **shrinking** the alias table — but can't **replace** it: the same vocabulary contains global tech terms (`PostgreSQL`, `Grafana`, `Linux`) whose keys such an encoder would mis-derive. Inclusive general core + an exception bridge is the deliberate design.
+
 ### Deliberately NOT built: deterministic fast-path rewriting
 
 We considered skipping the LLM whenever evidence is strong enough to rewrite deterministically (cutting latency further). We chose **not** to build it: the guard is exactly the layer that refuses dictionary-word collisions (`kiwi`/`Kivi`, `avoid`/`Void`), and routing every non-zero-candidate hit through it is cheap insurance against false positives. Latency is instead bounded by the zero-candidate fast path (~0ms) and `MAX_WORKERS` concurrency in eval.
