@@ -53,7 +53,11 @@ The system learns passively via `kivi learn` and applies corrections dynamically
 
 ## Architecture
 
+Kivi has two modes: `learn`, where you teach it a correction, and `process`, where it applies what it has learned to new transcripts.
+
 ### Learning Flow (`kivi learn`)
+
+You give it what the ASR heard and what you actually meant. It lines the two up word by word to find which words were misheard, keeps the meaningful words around each one as context clues, and stores how the term sounds so it can recognise the same mistake later.
 
 Processes ground-truth corrections to extract, encode, and memorize phonetic patterns.
 
@@ -69,6 +73,8 @@ ASR + corrected text
 Learning is idempotent — re-learning the same correction merges with the existing record instead of duplicating it. Every entity gets a deterministic ID (`lower(canonical).replace(" ", "_")`), so `Neovim`, `neo vim` and `NEOVIM` all map to the same row.
 
 ### Processing Flow (`kivi process`)
+
+It looks for chunks of the new sentence that sound like a term it remembers. If nothing does (most sentences), the text is returned unchanged without any LLM call. If something does, the LLM decides from the saved context clues whether the replacement actually fits.
 
 Applies memory to live ASR transcripts to resolve phonetic collisions.
 
@@ -96,11 +102,11 @@ Manual control over incorrect learnings and misaligned interventions:
 
 | Algorithm | Role |
 | --------- | ---- |
-| **Double Metaphone** | Maps words to 1–2 phonetic codes via ~100 spelling rules. Primary + secondary keys stored at full library length for consistency between learning and retrieval. |
-| **Gestalt Pattern Matching** (`difflib.SequenceMatcher`) | Aligns ASR with final text during learning. Finds the longest contiguous matching subsequence, handling word-level insertions/deletions better than character-level edit distance. |
-| **Smoothed TF-IDF** | `weight = local_frequency × log((total_entities + 2.0) / (entity_count + 1.0))`. Computed entirely in SQL via registered `math.log` — no Python-side row materialization. Filters on `weight ≥ 0.2` and `confidence ≥ 0.3`. |
-| **Asymptotic Exponential Confidence** | `confidence = 1.0 − (1.0 − 0.7) · e^(−0.3 · (observations − 1))`. Starts at 0.70 (never trusts a single observation), asymptotes to 1.0. |
-| **Dual N-Gram Keys** | Every 1–3 n-gram generates both a standard (space-preserving) key and a squashed (no-space) key. Catches split compounds (`adam berg → Atomberg`) without destroying true multi-word entities (`Max Payne`). |
+| **Double Metaphone** | Turns a word into a short capital-letter code based on how it sounds (`Kubernetes` → `KPRNTS`), so different spellings of the same sound match. Maps words to 1–2 phonetic codes via ~100 spelling rules. It is tuned mostly for English, so a mishearing and the real word can get different codes (`Cognito`/`incognito`); learned aliases cover that gap (see Key Design Decisions). Primary + secondary keys stored at full library length for consistency between learning and retrieval. |
+| **Gestalt Pattern Matching** (`difflib.SequenceMatcher`) | Lines up the ASR and corrected sentences word by word to find what changed. Finds the longest contiguous matching subsequence, handling word-level insertions/deletions better than character-level edit distance. |
+| **Smoothed TF-IDF** (Term Frequency × Inverse Document Frequency) | Scores how useful a context word is as a clue for a term. **TF** is how often the word appeared near that term; **IDF** is how rare the word is across all remembered terms, so generic words that appear near everything score low. `weight = local_frequency × log((total_entities + 2.0) / (entity_count + 1.0))`. Computed entirely in SQL via registered `math.log` — no Python-side row materialization. Keywords below `weight 0.2` are dropped; candidates themselves come from the phonetic match and are filtered on `confidence ≥ 0.3`. |
+| **Asymptotic Exponential Confidence** | How much Kivi trusts a learned term. Rises with each repeated observation. `confidence = 1.0 − (1.0 − 0.7) · e^(−0.3 · (observations − 1))`. Starts at 0.70 (never trusts a single observation), asymptotes to 1.0. |
+| **Dual N-Gram Keys** | Checks every 1–3 word chunk both as-is and with its spaces removed. Every 1–3 n-gram generates both a standard (space-preserving) key and a squashed (no-space) key. Catches split compounds (`adam berg → Atomberg`) without destroying true multi-word entities (`Max Payne`). |
 
 ## Key Design Decisions
 
