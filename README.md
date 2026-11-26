@@ -16,6 +16,47 @@ The system learns passively via `kivi learn` and applies corrections dynamically
 > "Kivi" here refers to this project itself, and not Sarvam's Kivi, which is a more polished and complete speech-to-text product.
 > The kivi here deals only with the phonetic memory layer of Sarvam's Kivi.
 
+## How it works, in plain words
+
+The rest of this README is technical. This section explains the same system without assuming you already know the algorithms.
+
+Kivi has two modes: **learn**, where you teach it a correction, and **process**, where it uses what it learned to fix new sentences.
+
+### Learning (`kivi learn`)
+
+1. **Input.** You give it what the speech model heard (`ask aditya to review the sarvam kiwi service`) and what you actually meant (`Ask Aaditya to review the Sarvam Kivi service.`).
+2. **Finding what changed.** It lines the two sentences up word by word using Python's built-in `difflib.SequenceMatcher`. That tool finds the longest stretches of words that match in both sentences and marks everything else as a change. So Kivi knows `aditya` should be `Aaditya` and `kiwi` should be `Kivi`.
+3. **Remembering the context.** It saves up to 4 meaningful words on each side of the change (`review`, `service`). It skips filler words like `the`, `is` or `basically` (about 150 "stop words"), and stops at clause breaks like `and` or `but` so words from a different part of the sentence don't leak in. These words become *clues* for later.
+4. **Storing how it sounds.** Each term is turned into a sound code with **Double Metaphone**, an algorithm that converts a word into a short string of capital letters based on how it's pronounced (`Kubernetes` → `KPRNTS`). Words that sound alike get the same code even if they're spelled differently. It gives two codes per word: a main pronunciation and an alternative one, and Kivi checks both.
+5. **Remembering the mistake too.** Double Metaphone was designed mostly around English words and names, so a mishearing and the real word don't always get the same code (`Cognito` vs `incognito`). So the exact mistake is also saved as an **alias** with its own sound code. Next time the speech model makes that same mistake, Kivi recognises it even though the algorithm alone wouldn't connect the two.
+6. **Confidence.** Every new term starts at 70% confidence and moves closer to 100% each time the same correction is seen again (`1 − 0.3 · e^(−0.3 · (observations − 1))`). A single correction is never fully trusted.
+
+Learning the same correction twice doesn't create duplicates; it just strengthens the existing memory.
+
+### Processing (`kivi process`)
+
+1. **Looking for sound-alikes.** It slides over the new sentence in chunks of 1, 2 and 3 words (*n-grams*), turns each chunk into its sound code, and checks whether any remembered term or remembered mistake has the same code.
+2. **Squashed chunks.** It also tries each chunk with the spaces removed, so a name the speech model split in two still matches (`adam berg` → `Atomberg`), without breaking real multi-word names (`Max Payne`).
+3. **Dropping weak memories.** Anything below 30% confidence is ignored.
+4. **Weighing the clues (TF-IDF).** Not every saved context word is a good clue, so each one gets a **TF-IDF** score (*Term Frequency × Inverse Document Frequency*):
+   - **TF (term frequency)** is how many times that word appeared next to this term in your corrections. If `deploy` showed up next to `Kubernetes` five times, it's a strong clue for Kubernetes.
+   - **IDF (inverse document frequency)** is how *rare* the word is across all the terms Kivi remembers: `log((total terms + 2) / (terms this word appears near + 1))`. A word like `meeting` that shows up next to almost everything doesn't help tell terms apart, so it scores low. The `+2` and `+1` keep the formula from dividing by zero or going negative.
+   - **Score = TF × IDF.** A word scores high when it often appears next to *this* term but rarely next to others. Only clues scoring at least `0.2` are kept.
+
+   This is all computed inside the SQLite database itself (Python's `math.log` is registered as a SQL function), so lookups stay under ~5 ms.
+
+   Note that TF-IDF doesn't decide *which terms* are possible matches. That's done by the sound codes. TF-IDF only decides *which clues* are passed along with each match.
+5. **Asking the LLM only when needed.** If nothing in the sentence sounds like a remembered term (most sentences), it's returned as it is, with no AI call at all. If something does, an LLM gets the original sentence, the possible matches and their clues, and decides whether to replace each one. It's told to keep the original unless the context supports the change, so it won't turn `kiwi` into `Kivi` or `avoid` into `Void` in a normal sentence. Names (`PERSON`) are judged by sentence structure ("met with X", "ask X to…"), while technical terms (`TECH_TERM`) need real domain clues. It runs at temperature 0 (no randomness) and must answer in a fixed JSON format, so the same input always gives the same output.
+
+### Fixing mistakes
+
+- **`kivi forget`** deletes a learned term completely, along with its aliases, stats and clues.
+- **`kivi penalize`** lowers a term's confidence by 15%. If it drops below 30%, it stops being matched.
+
+### How well it works
+
+On a test set of 500 sentences (343 that needed a fix and 157 that didn't), it made the right correction **87.5%** of the time and wrongly changed an already-correct sentence only **3.2%** of the time. The whole run cost about **$0.08** in API usage. The slow part is the remote LLM call (about 23 seconds median on a free tier); a local small model or a paid tier would cut that down a lot.
+
 ## Directory Structure
 
 ```
